@@ -6,62 +6,67 @@
   makeDesktopItem,
   makeWrapper,
   nodejs,
-  pnpm_10_29_2,
+  pnpm,
   fetchPnpmDeps,
   pnpmConfigHook,
   stdenv,
+  pkg-config,
+  vips,
 }:
 stdenv.mkDerivation rec {
   pname = "folo";
-
-  version = "0.6.3";
+  version = "1.9.0";
 
   src = fetchFromGitHub {
     owner = "RSSNext";
     repo = "Folo";
-    tag = "v${version}";
-    hash = "sha256-huVk5KcsepDwtdWMm9pvn31GE1felbH1pR3mGqlSWRs=";
+    tag = "desktop/v${version}";
+    hash = "sha256-VrKWqqXzdEOfl8E069eZCeI5agxWKmRMW6ziGqURuHc=";
   };
 
   nativeBuildInputs = [
     nodejs
+    pnpm
     pnpmConfigHook
-    pnpm_10_29_2
     makeWrapper
     imagemagick
+    pkg-config
+  ];
+
+  buildInputs = [
+    vips
   ];
 
   pnpmDeps = fetchPnpmDeps {
-    inherit
-      pname
-      version
-      src
-      ;
-    pnpm = pnpm_10_29_2;
+    inherit pname version src;
     fetcherVersion = 3;
-    hash = "sha256-EP7bpbJUcKmHm7KMlKc0Fz2u0niQ3jC7YN/9pp7vucE=";
+    hash = "sha256-uj7xyh+U4OHn6J+jhoPaEOYwOLinRAj5CbWZYPgG6zI=";
   };
+
+  pnpmFlags = [
+    "--filter=./apps/desktop..."
+    "--filter=./packages/..."
+    "--ignore-scripts"
+    "--child-concurrency=1"
+    "--network-concurrency=1"
+  ];
 
   env = {
     ELECTRON_SKIP_BINARY_DOWNLOAD = "1";
+    SHARP_IGNORE_GLOBAL_LIBVIPS = "1";
 
-    # This environment variables inject the production Vite config at build time.
-    # Copy from:
-    # 1. https://github.com/RSSNext/Folo/blob/v0.4.6/.github/workflows/build-desktop.yml#L27
-    # 2. And logs in the corresponding GitHub Actions: https://github.com/RSSNext/Folo/actions/workflows/build-desktop.yml
-    VITE_WEB_URL = "https://app.follow.is";
-    VITE_API_URL = "https://api.follow.is";
-    VITE_SENTRY_DSN = "https://e5bccf7428aa4e881ed5cb713fdff181@o4507542488023040.ingest.us.sentry.io/4507570439979008";
-    VITE_OPENPANEL_CLIENT_ID = "0e477ab4-d92d-4d6e-b889-b09d86ab908e";
-    VITE_OPENPANEL_API_URL = "https://openpanel.follow.is/api";
+    VITE_WEB_URL = "https://app.folo.is";
+    VITE_API_URL = "https://api.folo.is";
+    VITE_OPENPANEL_API_URL = "https://openpanel.folo.is/api";
+
     VITE_FIREBASE_CONFIG = builtins.toJSON {
-      apiKey = "AIzaSyDuM93019tp8VI7wsszJv8ChOs7b1EE5Hk";
-      authDomain = "follow-428106.firebaseapp.com";
-      projectId = "follow-428106";
-      storageBucket = "follow-428106.appspot.com";
-      messagingSenderId = "194977404578";
-      appId = "1:194977404578:web:1920bb0c9ea5e2373669fb";
-      measurementId = "G-SJE57D4F14";
+      apiKey = "AIzaSyBpGB2C2Vz-9ktivqVkW7uTtVopNh3ELvo";
+      authDomain = "diygod-folo.firebaseapp.com";
+      projectId = "diygod-folo";
+      storageBucket = "diygod-folo.firebasestorage.app";
+      messagingSenderId = "992336953943";
+      appId = "1:992336953943:web:998aae576c8bc77dc11912";
+      measurementId = "G-HS4SF4GHWG";
     };
   };
 
@@ -84,14 +89,11 @@ stdenv.mkDerivation rec {
 
     pnpm run build:packages
 
-    # Build desktop app.
     cd apps/desktop
     pnpm --offline --no-inline-css build:electron-vite
     cd ../..
 
-    # Remove dev dependencies.
     CI=true pnpm --ignore-scripts prune --prod
-    # Clean up broken symlinks left behind by `pnpm prune`
     find node_modules/.bin -xtype l -delete
 
     runHook postBuild
